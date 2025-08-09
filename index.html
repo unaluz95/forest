@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>급식 정보</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f7f6;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        input[type="date"] {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #meal-info {
+            margin-top: 30px;
+            text-align: left;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            min-height: 100px;
+            background-color: #fafafa;
+            white-space: pre-wrap;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>급식 정보 조회</h1>
+        <p>날짜를 선택하고 급식 정보를 확인하세요.</p>
+        <div>
+            <input type="date" id="date-picker">
+            <button id="get-meal-btn">조회하기</button>
+        </div>
+        <div id="meal-info">
+            <p>날짜를 선택 후 조회하기 버튼을 눌러주세요.</p>
+        </div>
+    </div>
+
+    <script>
+        // 오늘 날짜를 YYYY-MM-DD 형식으로 설정
+        const datePicker = document.getElementById('date-picker');
+        datePicker.value = new Date().toISOString().slice(0, 10);
+
+        const getMealBtn = document.getElementById('get-meal-btn');
+        const mealInfoDiv = document.getElementById('meal-info');
+
+        getMealBtn.addEventListener('click', () => {
+            const selectedDate = datePicker.value.replace(/-/g, ''); // yyyymmdd 형식으로 변환
+            if (!selectedDate) {
+                mealInfoDiv.innerHTML = '<p>날짜를 선택해주세요.</p>';
+                return;
+            }
+
+            // API 기본 정보
+            const ATPT_OFCDC_SC_CODE = 'J10';
+            const SD_SCHUL_CODE = '7661026';
+            const API_URL = `https://open.neis.go.kr/hub/mealServiceDietInfo?ATPT_OFCDC_SC_CODE=${ATPT_OFCDC_SC_CODE}&SD_SCHUL_CODE=${SD_SCHUL_CODE}&MLSV_YMD=${selectedDate}`;
+
+            mealInfoDiv.innerHTML = '<p>급식 정보를 불러오는 중입니다...</p>';
+
+            // fetch API를 사용하여 XML 데이터 요청 [1, 5]
+            fetch(API_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('네트워크에 문제가 발생했습니다.');
+                    }
+                    return response.text();
+                })
+                .then(xmlString => {
+                    // DOMParser를 사용하여 XML 문자열을 파싱 [2, 4]
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+                    const rows = xmlDoc.getElementsByTagName('row');
+
+                    if (rows.length === 0) {
+                        mealInfoDiv.innerHTML = '<p>해당 날짜의 급식 정보가 없습니다.</p>';
+                        return;
+                    }
+
+                    let mealHtml = '';
+                    for (let i = 0; i < rows.length; i++) {
+                        const mealType = rows[i].getElementsByTagName('MMEAL_SC_NM')[0].textContent;
+                        const mealData = rows[i].getElementsByTagName('DDISH_NM')[0].textContent;
+                        
+                        mealHtml += `<strong>[${mealType}]</strong>\n`;
+                        // <br/> 태그를 줄바꿈 문자로 변경하여 표시
+                        mealHtml += mealData.replace(/<br\/>/g, '\n') + '\n\n';
+                    }
+                    mealInfoDiv.textContent = mealHtml;
+
+                })
+                .catch(error => {
+                    console.error('Fetch Error:', error);
+                    mealInfoDiv.innerHTML = `<p>정보를 불러오는 데 실패했습니다. (${error.message})</p>`;
+                });
+        });
+    </script>
+
+</body>
+</html>
